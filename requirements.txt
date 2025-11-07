@@ -1,8 +1,10 @@
 streamlit
 pillow
 numpy
-scikit-learn
 pandas
 matplotlib
 seaborn
 joblib
+scikit-learn
+tensorflow==2.15.0
+
