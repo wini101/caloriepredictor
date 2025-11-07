@@ -1,55 +1,80 @@
-# 🍔 Healthy Plate - Image Calorie Predictor
+# 🍛 Healthy Plate - Indian Food Calorie Predictor
 import streamlit as st
 from PIL import Image
 import numpy as np
 import random
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input, decode_predictions
+from tensorflow.keras.preprocessing import image as keras_image
 
 # --- Page setup ---
 st.set_page_config(page_title="Healthy Plate 🍽️", layout="centered")
-st.title("🍽️ Healthy Plate - Food Image Calorie Predictor")
+st.title("🍛 Healthy Plate - Indian Food Calorie Predictor")
+st.write("Upload an Indian food image and get estimated calories + health rating.")
 
-st.write("Upload a food image (JPG/PNG) and get estimated calories + health category.")
-
-# --- Upload Image ---
+# --- Upload image ---
 uploaded_file = st.file_uploader("Upload a Food Image", type=["jpg", "jpeg", "png"])
 
-# Only run the rest if file is uploaded
+# Load model only once
+@st.cache_resource
+def load_model():
+    return MobileNetV2(weights="imagenet")
+
+model = load_model()
+
+# --- Indian calorie data ---
+indian_food_calories = {
+    "Roti": 120, "Dal": 180, "Paneer Curry": 300, "Biryani": 450, "Dosa": 200,
+    "Idli": 100, "Samosa": 250, "Poha": 180, "Chole": 350, "Rajma": 320,
+    "Pulao": 300, "Aloo Paratha": 350, "Curd Rice": 280, "Upma": 220, "Pav Bhaji": 400
+}
+
+# Mapping model predictions to Indian foods
+name_mapping = {
+    "bread": "Roti", "curry": "Dal", "rice": "Biryani", "pancake": "Dosa",
+    "sandwich": "Pav Bhaji", "cream": "Paneer Curry", "omelet": "Egg Curry",
+    "ice_cream": "Kulfi", "soup": "Dal Soup"
+}
+
+def health_category(cal):
+    if cal < 150:
+        return "Healthy 🌿"
+    elif cal < 300:
+        return "Moderate 🍲"
+    else:
+        return "High Calorie 🍔"
+
+# --- Prediction ---
 if uploaded_file is not None:
-    # Display uploaded image
     image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Food Image", use_column_width=True)
+    st.image(image, caption="🍱 Uploaded Food Image", use_column_width=True)
 
-    # --- Dummy AI Prediction (simulated for now) ---
-    possible_foods = {
-        "Salad": 120,
-        "Pasta": 250,
-        "Pizza": 350,
-        "Burger": 450,
-        "Soup": 180,
-        "Rice Bowl": 300,
-        "Ice Cream": 380
-    }
+    img = keras_image.load_img(uploaded_file, target_size=(224, 224))
+    img_array = keras_image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array = preprocess_input(img_array)
 
-    # Randomly pick a food and calorie estimate
-    food_item = random.choice(list(possible_foods.keys()))
-    predicted_calories = possible_foods[food_item] + random.randint(-20, 20)
+    preds = model.predict(img_array)
+    decoded = decode_predictions(preds, top=3)[0]
+    raw_food = decoded[0][1].lower()
 
-    # --- Define health category ---
-    def health_category(cal):
-        if cal < 150:
-            return "Healthy 🌿"
-        elif cal < 300:
-            return "Moderate 🍲"
-        else:
-            return "High Calorie 🍔"
+    # map to Indian food if possible
+    food_item = name_mapping.get(raw_food, raw_food.title())
+    predicted_calories = indian_food_calories.get(food_item, random.randint(200, 400))
 
-    # --- Display results ---
-    st.success(f"🍱 **Predicted Food:** {food_item}")
-    st.write(f"🔥 **Estimated Calories:** {predicted_calories} kcal")
-    st.info(f"💪 **Health Category:** {health_category(predicted_calories)}")
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("🍛 Food", food_item)
+    with col2:
+        st.metric("🔥 Calories", f"{predicted_calories} kcal")
+    with col3:
+        st.metric("💪 Category", health_category(predicted_calories))
+    st.markdown("---")
 
-    st.caption("*(Note: These are AI-based estimates — for accurate results, use a nutrition calculator.)*")
+    st.caption("⚠️ AI-based Indian food predictions — approximate calorie values only.")
 else:
-    st.warning("Please upload a food image to get calorie prediction.")
+    st.info("Please upload a food image to get calorie prediction.")
+
+
 
 
