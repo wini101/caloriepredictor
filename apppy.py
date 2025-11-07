@@ -1,4 +1,4 @@
-# 🍛 Healthy Plate - Indian Food Calorie Predictor
+# 🍽️Healthy Plate - Food Calorie Predictor
 import streamlit as st
 from PIL import Image
 import numpy as np
@@ -6,13 +6,13 @@ import random
 from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input, decode_predictions
 from tensorflow.keras.preprocessing import image as keras_image
 
-# --- Page setup ---
+# --- Page Setup ---
 st.set_page_config(page_title="Healthy Plate 🍽️", layout="centered")
-st.title("🍛 Healthy Plate - Indian Food Calorie Predictor")
-st.write("Upload an Indian food image and get estimated calories + health rating.")
+st.title("🌍 Healthy Plate -  Food Calorie Predictor")
+st.write("Upload any food image — Indian, Western, or international — and get estimated calories with health rating.")
 
-# --- Upload image ---
-uploaded_file = st.file_uploader("Upload a Food Image", type=["jpg", "jpeg", "png"])
+# --- Upload Section ---
+uploaded_file = st.file_uploader("📸 Upload a Food Image", type=["jpg", "jpeg", "png"])
 
 # Load model only once
 @st.cache_resource
@@ -21,18 +21,24 @@ def load_model():
 
 model = load_model()
 
-# --- Indian calorie data ---
-indian_food_calories = {
-    "Roti": 120, "Dal": 180, "Paneer Curry": 300, "Biryani": 450, "Dosa": 200,
-    "Idli": 100, "Samosa": 250, "Poha": 180, "Chole": 350, "Rajma": 320,
-    "Pulao": 300, "Aloo Paratha": 350, "Curd Rice": 280, "Upma": 220, "Pav Bhaji": 400
+# --- Food Calorie Data (Indian + Global) ---
+food_calories = {
+    # Indian foods
+    "Roti": 120, "Dal": 180, "Paneer Curry": 300, "Biryani": 450, "Dosa": 200, "Idli": 100,
+    "Samosa": 250, "Poha": 180, "Chole": 350, "Rajma": 320, "Pulao": 300, "Aloo Paratha": 350,
+    "Curd Rice": 280, "Upma": 220, "Pav Bhaji": 400,
+
+    # Western foods
+    "Pizza": 350, "Burger": 450, "Pasta": 300, "Sandwich": 250, "Salad": 150, "Soup": 180,
+    "Fries": 400, "Steak": 500, "Ice Cream": 380, "Sushi": 220, "Taco": 280, "Donut": 310
 }
 
-# Mapping model predictions to Indian foods
+# Mapping model predictions to Indian or known foods
 name_mapping = {
     "bread": "Roti", "curry": "Dal", "rice": "Biryani", "pancake": "Dosa",
-    "sandwich": "Pav Bhaji", "cream": "Paneer Curry", "omelet": "Egg Curry",
-    "ice_cream": "Kulfi", "soup": "Dal Soup"
+    "sandwich": "Sandwich", "cream": "Paneer Curry", "omelet": "Egg Curry",
+    "ice_cream": "Ice Cream", "soup": "Soup", "pizza": "Pizza", "burger": "Burger",
+    "spaghetti": "Pasta", "fries": "Fries", "salad": "Salad", "burrito": "Taco"
 }
 
 def health_category(cal):
@@ -43,7 +49,7 @@ def health_category(cal):
     else:
         return "High Calorie 🍔"
 
-# --- Prediction ---
+# --- Prediction Logic ---
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="🍱 Uploaded Food Image", use_column_width=True)
@@ -57,23 +63,26 @@ if uploaded_file is not None:
     decoded = decode_predictions(preds, top=3)[0]
     raw_food = decoded[0][1].lower()
 
-    # map to Indian food if possible
+    # Map to known food name
     food_item = name_mapping.get(raw_food, raw_food.title())
-    predicted_calories = indian_food_calories.get(food_item, random.randint(200, 400))
+
+    # Get calorie value
+    predicted_calories = food_calories.get(food_item, random.randint(150, 500))
 
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("🍛 Food", food_item)
+        st.metric("🍽️ Food", food_item)
     with col2:
         st.metric("🔥 Calories", f"{predicted_calories} kcal")
     with col3:
         st.metric("💪 Category", health_category(predicted_calories))
     st.markdown("---")
 
-    st.caption("⚠️ AI-based Indian food predictions — approximate calorie values only.")
+    st.caption("⚠️ AI-based food recognition — calorie estimates may vary depending on portion size and recipe.")
 else:
     st.info("Please upload a food image to get calorie prediction.")
+
 
 
 
