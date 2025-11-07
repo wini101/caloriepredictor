@@ -18,6 +18,7 @@ if uploaded_file is not None:
     # --- Expanded food list ---
     possible_foods = {
         # Indian foods
+        "Chole Bhature": 500,
         "Dal Chawal": 320,
         "Rajma Chawal": 380,
         "Chole Bhature": 520,
@@ -61,6 +62,7 @@ if uploaded_file is not None:
     st.caption("*(Note: This is a simulated AI estimate. For real nutrition data, use a verified calorie tracker.)*")
 else:
     st.warning("Please upload a food image to get calorie prediction.")
+
 
 
 
