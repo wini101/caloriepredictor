@@ -1,11 +1,4 @@
 streamlit
 pillow
 numpy
-pandas
-matplotlib
-seaborn
-joblib
-scikit-learn
-tensorflow-cpu==2.15.0
-
 
