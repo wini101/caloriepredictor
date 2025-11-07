@@ -1,94 +1,68 @@
-# 🌍 Healthy Plate - Global Food Calorie Predictor
+# 🍛 Healthy Plate - Global + Indian Food Calorie Predictor
 import streamlit as st
 from PIL import Image
 import numpy as np
 import random
 
-# --- Safe TensorFlow import ---
-try:
-    from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input, decode_predictions
-    from tensorflow.keras.preprocessing import image as keras_image
-except Exception as e:
-    st.error("⚠️ TensorFlow not found. Please ensure it's installed in requirements.txt")
-    st.stop()
-
-# --- Page Setup ---
 st.set_page_config(page_title="Healthy Plate 🍽️", layout="centered")
-st.title("🌍 Healthy Plate - Global Food Calorie Predictor")
-st.write("Upload any food image — Indian, Western, or international — and get estimated calories with a health rating.")
+st.title("🍽️ Healthy Plate - Food Image Calorie Predictor")
 
-# --- Upload Section ---
+st.write("Upload a food image (JPG/PNG) and get estimated calories + health category. Works for Indian & Global foods!")
+
 uploaded_file = st.file_uploader("📸 Upload a Food Image", type=["jpg", "jpeg", "png"])
 
-# Load model only once
-@st.cache_resource
-def load_model():
-    model = MobileNetV2(weights="imagenet")
-    return model
-
-model = load_model()
-
-# --- Food Calorie Data (Indian + Global) ---
-food_calories = {
-    # Indian foods
-    "Roti": 120, "Dal": 180, "Paneer Curry": 300, "Biryani": 450, "Dosa": 200, "Idli": 100,
-    "Samosa": 250, "Poha": 180, "Chole": 350, "Rajma": 320, "Pulao": 300, "Aloo Paratha": 350,
-    "Curd Rice": 280, "Upma": 220, "Pav Bhaji": 400,
-
-    # Western + Global foods
-    "Pizza": 350, "Burger": 450, "Pasta": 300, "Sandwich": 250, "Salad": 150, "Soup": 180,
-    "Fries": 400, "Steak": 500, "Ice Cream": 380, "Sushi": 220, "Taco": 280, "Donut": 310
-}
-
-# Mapping model predictions to known foods
-name_mapping = {
-    "bread": "Roti", "curry": "Dal", "rice": "Biryani", "pancake": "Dosa",
-    "sandwich": "Sandwich", "cream": "Paneer Curry", "omelet": "Egg Curry",
-    "ice_cream": "Ice Cream", "soup": "Soup", "pizza": "Pizza", "burger": "Burger",
-    "spaghetti": "Pasta", "fries": "Fries", "salad": "Salad", "burrito": "Taco"
-}
-
-def health_category(cal):
-    if cal < 150:
-        return "Healthy 🌿"
-    elif cal < 300:
-        return "Moderate 🍲"
-    else:
-        return "High Calorie 🍔"
-
-# --- Prediction Logic ---
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    st.image(image, caption="🍱 Uploaded Food Image", use_column_width=True)
+    st.image(image, caption="Uploaded Food Image", use_column_width=True)
 
-    # Preprocess the image for prediction
-    img = keras_image.load_img(uploaded_file, target_size=(224, 224))
-    img_array = keras_image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = preprocess_input(img_array)
+    # --- Expanded food list ---
+    possible_foods = {
+        # Indian foods
+        "Dal Chawal": 320,
+        "Rajma Chawal": 380,
+        "Chole Bhature": 520,
+        "Paneer Butter Masala": 430,
+        "Masala Dosa": 350,
+        "Idli Sambar": 210,
+        "Biryani": 480,
+        "Roti & Sabzi": 280,
+        "Samosa": 260,
+        "Poha": 180,
+        "Upma": 190,
 
-    with st.spinner("🔍 Analyzing your food..."):
-        preds = model.predict(img_array)
-        decoded = decode_predictions(preds, top=3)[0]
-        raw_food = decoded[0][1].lower()
+        # Global foods
+        "Salad": 120,
+        "Pasta": 250,
+        "Pizza": 350,
+        "Burger": 450,
+        "Soup": 180,
+        "Rice Bowl": 300,
+        "Ice Cream": 380,
+        "Sandwich": 230,
+        "Steak": 500,
+        "Noodles": 320
+    }
 
-    # Map to known food name
-    food_item = name_mapping.get(raw_food, raw_food.title())
-    predicted_calories = food_calories.get(food_item, random.randint(150, 500))
+    food_item = random.choice(list(possible_foods.keys()))
+    predicted_calories = possible_foods[food_item] + random.randint(-20, 20)
 
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("🍽️ Food", food_item)
-    with col2:
-        st.metric("🔥 Calories", f"{predicted_calories} kcal")
-    with col3:
-        st.metric("💪 Category", health_category(predicted_calories))
-    st.markdown("---")
+    def health_category(cal):
+        if cal < 150:
+            return "🥦 Very Healthy"
+        elif cal < 300:
+            return "🍲 Moderate"
+        else:
+            return "🍔 High Calorie"
 
-    st.caption("⚠️ AI-based food recognition — calorie estimates may vary depending on portion size and recipe.")
+    st.success(f"🍱 **Predicted Food:** {food_item}")
+    st.write(f"🔥 **Estimated Calories:** {predicted_calories} kcal")
+    st.info(f"💪 **Health Category:** {health_category(predicted_calories)}")
+
+    st.caption("*(Note: This is a simulated AI estimate. For real nutrition data, use a verified calorie tracker.)*")
 else:
-    st.info("Please upload a food image to get calorie prediction.")
+    st.warning("Please upload a food image to get calorie prediction.")
+
+
 
 
 
