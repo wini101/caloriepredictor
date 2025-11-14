@@ -134,10 +134,23 @@ def predict_array(arr):
 # ------------------------------------------------------------
 def preprocess_image(image):
     image = image.convert("RGB")
-    image = image.resize((384, 384))  # FIXED SIZE FOR YOUR MODEL
+
+    # 1. CENTER CROP (very important for correct prediction)
+    w, h = image.size
+    min_edge = min(w, h)
+    left = (w - min_edge) // 2
+    top = (h - min_edge) // 2
+    image = image.crop((left, top, left + min_edge, top + min_edge))
+
+    # 2. RESIZE TO YOUR MODEL SIZE
+    image = image.resize((384, 384))
+
+    # 3. NORMALIZE
     arr = np.array(image).astype("float32") / 255.0
     arr = np.expand_dims(arr, axis=0)
+
     return arr
+
 
 
 # ------------------------------------------------------------
@@ -156,10 +169,6 @@ def get_cal(label):
     return 250
 
 
-# ------------------------------------------------------------
-# DEBUG SWITCH (UNCHANGED)
-# ------------------------------------------------------------
-debug = st.sidebar.checkbox("Debug", key="debug")
 
 
 # ------------------------------------------------------------
@@ -294,3 +303,4 @@ with col2:
         st.markdown("### Adjust Protein")
         st.slider("Protein target", 0, 200, 80)
         st.markdown("</div>", unsafe_allow_html=True)
+
