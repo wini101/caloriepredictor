@@ -15,33 +15,16 @@ except:
     H5PY_AVAILABLE = False
 
 from PIL import Image
-import os, io, csv
-
-try:
-    import matplotlib.pyplot as plt
-    MATPLOTLIB_AVAILABLE = True
-except:
-    plt = None
-    MATPLOTLIB_AVAILABLE = False
-
-try:
-    from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-    SKLEARN_AVAILABLE = True
-except:
-    confusion_matrix = None
-    ConfusionMatrixDisplay = None
-    SKLEARN_AVAILABLE = False
-
+import os
 
 # ------------------------------------------------------------
-# APP BASE
+# APP BASE UI
 # ------------------------------------------------------------
 st.set_page_config(page_title="Food Predictor", page_icon="🍏", layout="wide")
 st.title("AI Food Calorie Predictor")
 
-
 # ------------------------------------------------------------
-# THEME (UNCHANGED)
+# THEME
 # ------------------------------------------------------------
 st.markdown(
     """
@@ -57,14 +40,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ------------------------------------------------------------
 # LOAD MODEL
 # ------------------------------------------------------------
 @st.cache_resource
 def load_model():
     if not TF_AVAILABLE:
-        st.warning("TensorFlow not available: Demo mode.")
+        st.warning("TensorFlow not available (demo mode).")
         return None
     for fname in ("best_food_model.h5", "food_model.h5"):
         if os.path.exists(fname):
@@ -72,40 +54,36 @@ def load_model():
                 return tf.keras.models.load_model(fname)
             except:
                 pass
-    st.error("No model found")
+    st.error("No model found.")
     return None
 
 model = load_model()
 
-
 # ------------------------------------------------------------
 # LABELS
 # ------------------------------------------------------------
-@st.cache_resource
-def get_labels():
-    return ["apple_pie","baby_back_ribs","baklava","beef_carpaccio","beef_tartare","beet_salad",
+labels = [
+    "apple_pie","baby_back_ribs","baklava","beef_carpaccio","beef_tartare","beet_salad",
     "beignets","bibimbap","bread_pudding","breakfast_burrito","bruschetta","caesar_salad",
-    "cannoli","caprese_salad","carrot_cake","ceviche","cheese_plate","cheesecake","chicken_curry",
-    "chicken_quesadilla","chicken_wings","chocolate_cake","chocolate_mousse","churros",
-    "clam_chowder","club_sandwich","crab_cakes","creme_brulee","croque_madame","cup_cakes",
-    "deviled_eggs","donuts","dumplings","edamame","eggs_benedict","escargots","falafel",
-    "filet_mignon","fish_and_chips","foie_gras","french_fries","french_onion_soup","french_toast",
-    "fried_calamari","fried_rice","frozen_yogurt","garlic_bread","gnocchi","greek_salad",
-    "grilled_cheese_sandwich","grilled_salmon","guacamole","gyoza","hamburger",
-    "hot_and_sour_soup","hot_dog","huevos_rancheros","hummus","ice_cream","lasagna",
-    "lobster_bisque","lobster_roll_sandwich","macaroni_and_cheese","macarons","miso_soup",
-    "mussels","nachos","omelette","onion_rings","oysters","pad_thai","paella","pancakes",
-    "panna_cotta","peking_duck","pho","pizza","pork_chop","poutine","prime_rib",
-    "pulled_pork_sandwich","ramen","ravioli","red_velvet_cake","risotto","samosa","sashimi",
-    "scallops","seaweed_salad","shrimp_and_grits","spaghetti_bolognese","spaghetti_carbonara",
-    "spring_rolls","steak","strawberry_shortcake","sushi","tacos","takoyaki","tiramisu",
-    "tuna_tartare","waffles"]
-
-labels = get_labels()
-
+    "cannoli","caprese_salad","carrot_cake","ceviche","cheese_plate","cheesecake",
+    "chicken_curry","chicken_quesadilla","chicken_wings","chocolate_cake","chocolate_mousse",
+    "churros","clam_chowder","club_sandwich","crab_cakes","creme_brulee","croque_madame",
+    "cup_cakes","deviled_eggs","donuts","dumplings","edamame","eggs_benedict","escargots",
+    "falafel","filet_mignon","fish_and_chips","foie_gras","french_fries",
+    "french_onion_soup","french_toast","fried_calamari","fried_rice","frozen_yogurt",
+    "garlic_bread","gnocchi","greek_salad","grilled_cheese_sandwich","grilled_salmon",
+    "guacamole","gyoza","hamburger","hot_and_sour_soup","hot_dog","huevos_rancheros",
+    "hummus","ice_cream","lasagna","lobster_bisque","lobster_roll_sandwich",
+    "macaroni_and_cheese","macarons","miso_soup","mussels","nachos","omelette",
+    "onion_rings","oysters","pad_thai","paella","pancakes","panna_cotta","peking_duck",
+    "pho","pizza","pork_chop","poutine","prime_rib","pulled_pork_sandwich","ramen","ravioli",
+    "red_velvet_cake","risotto","samosa","sashimi","scallops","seaweed_salad",
+    "shrimp_and_grits","spaghetti_bolognese","spaghetti_carbonara","spring_rolls","steak",
+    "strawberry_shortcake","sushi","tacos","takoyaki","tiramisu","tuna_tartare","waffles"
+]
 
 # ------------------------------------------------------------
-# PREPROCESS
+# PREPROCESS IMAGE
 # ------------------------------------------------------------
 def preprocess_image(image):
     image = image.convert("RGB")
@@ -116,28 +94,66 @@ def preprocess_image(image):
     arr = np.array(image).astype("float32") / 255.0
     return np.expand_dims(arr, 0)
 
-
 # ------------------------------------------------------------
 # PREDICT
 # ------------------------------------------------------------
 def predict_array(arr):
     if model is None:
-        n = len(labels)
-        out = np.zeros((1, n))
-        out[0, np.random.randint(0,n)] = 1
+        out = np.zeros((1, len(labels)))
+        out[0, np.random.randint(0, len(labels))] = 1
         return out
     return model.predict(arr, verbose=0)
 
-
 # ------------------------------------------------------------
-# CALORIES
+# CALORIES DICTIONARY
 # ------------------------------------------------------------
-cal_dict={"pizza":266,"burger":295,"samosa":310,"salad":120}
-
+cal_dict = {
+    "pizza": 266, "burger": 295, "samosa": 310, "salad": 120,
+    "fried_rice": 333, "ice_cream": 207, "ramen": 180,
+    "tacos": 226, "waffles": 291
+}
 
 def get_cal(label):
     return cal_dict.get(label, 250)
 
+# ------------------------------------------------------------
+# TDEE FUNCTION (NOW USING HEIGHT)
+# ------------------------------------------------------------
+def calculate_tdee(gender, age, weight, height, activity, goal):
+    if gender == "Female":
+        bmr = 10*weight + 6.25*height - 5*age - 161
+    else:
+        bmr = 10*weight + 6.25*height - 5*age + 5
+
+    activity_map = {
+        "Low": 1.2,
+        "Moderate": 1.375,
+        "High": 1.55,
+        "Very High": 1.725
+    }
+
+    tdee = bmr * activity_map[activity]
+
+    if goal == "Lose":
+        tdee -= 300
+    elif goal == "Gain":
+        tdee += 300
+
+    return max(1200, int(tdee))
+
+# ------------------------------------------------------------
+# HEALTH CLASSIFICATION
+# ------------------------------------------------------------
+def classify_health(total_kcal, tdee):
+    ratio = total_kcal / tdee
+    if ratio < 0.10:
+        return "Very Healthy", "🟢"
+    elif ratio < 0.20:
+        return "Healthy Choice", "🟢"
+    elif ratio < 0.30:
+        return "Caution – High Calorie", "🟡"
+    else:
+        return "Unhealthy for Your Goal", "🔴"
 
 # ------------------------------------------------------------
 # UI LAYOUT
@@ -147,17 +163,18 @@ col1, col2 = st.columns([0.45, 0.55], gap="medium")
 with col1:
     st.markdown("<div class='control-card'>", unsafe_allow_html=True)
     st.subheader("Body Parameters")
-    gender = st.radio("Gender", ["Male","Female"])
+
+    gender = st.radio("Gender", ["Male", "Female"])
     age = st.number_input("Age", 10, 100, 25)
+    height = st.number_input("Height (cm)", 120, 200, 165)
     weight = st.number_input("Weight (kg)", 20, 200, 55)
-    activity = st.select_slider("Activity", ["Low","Moderate","High"])
-    goal = st.selectbox("Goal", ["Lose","Maintain","Gain"])
+    activity = st.select_slider("Activity Level", ["Low", "Moderate", "High", "Very High"])
+    goal = st.selectbox("Goal", ["Lose", "Maintain", "Gain"])
 
     st.markdown("---")
-    uploaded_file = st.file_uploader("Upload food image", ["jpg","jpeg","png"])
+    uploaded_file = st.file_uploader("Upload food image", ["jpg", "jpeg", "png"])
     calc = st.button("Calculate", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 with col2:
     st.markdown("<div class='result-card'>", unsafe_allow_html=True)
@@ -188,9 +205,12 @@ with col2:
             st.markdown(f"### {pred_label.replace('_',' ').title()}")
             st.metric("Confidence", f"{conf:.1f}%")
 
+            # TDEE + HEALTH VERDICT
+            tdee = calculate_tdee(gender, age, weight, height, activity, goal)
+            health_msg, emoji = classify_health(total, tdee)
+
+            st.markdown(f"### {emoji} Health Verdict")
+            st.write(f"**{health_msg}** ({int(total/tdee*100)}% of your daily need)")
+            st.caption(f"Your estimated daily requirement: **{tdee} kcal**")
+
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-
-
-
