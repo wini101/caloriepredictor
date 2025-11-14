@@ -217,6 +217,7 @@ with col2:
             conf = float(scores[idx]) * 100
 
             pred_label = labels[idx]
+debug = st.sidebar.checkbox("Debug")
 
         # UI BELOW IS EXACTLY SAME AS YOUR ORIGINAL
         col_a, col_b = st.columns([1, 1])
@@ -303,4 +304,5 @@ with col2:
         st.markdown("### Adjust Protein")
         st.slider("Protein target", 0, 200, 80)
         st.markdown("</div>", unsafe_allow_html=True)
+
 
