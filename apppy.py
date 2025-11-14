@@ -171,10 +171,24 @@ def get_cal(label):
 
 
 
-# ------------------------------------------------------------
-# MAIN UI (UNCHANGED)
-# ------------------------------------------------------------
-col1, col2 = st.columns([0.45, 0.55], gap="medium")
+        # UI BELOW IS EXACTLY SAME AS YOUR ORIGINAL
+        col_a, col_b = st.columns([1, 1])
+
+        with col_a:
+            st.image(img, use_column_width=True)
+
+        with col_b:
+            cal_per100 = get_cal(pred_label)
+            portion = st.slider("Portion size (g)", 50, 1000, 250, 25)
+            total_kcal = int(cal_per100 * portion / 100)
+
+            st.markdown(f"<div class='big-number'>{total_kcal} kcal</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='muted'>Estimated for {portion} g — {cal_per100} kcal / 100g</div>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            st.markdown(f"### {pred_label.replace('_',' ').title()}")
+            st.metric("Confidence", f"{conf:.1f}%")
+
 
 with col1:
     st.markdown("<div class='control-card'>", unsafe_allow_html=True)
@@ -304,5 +318,6 @@ debug = st.sidebar.checkbox("Debug")
         st.markdown("### Adjust Protein")
         st.slider("Protein target", 0, 200, 80)
         st.markdown("</div>", unsafe_allow_html=True)
+
 
 
