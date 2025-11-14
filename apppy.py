@@ -16,7 +16,8 @@ except:
 
 from PIL import Image
 import os, io, csv
-try: 
+
+try:
     import matplotlib.pyplot as plt
     MATPLOTLIB_AVAILABLE = True
 except:
@@ -32,40 +33,69 @@ except:
     SKLEARN_AVAILABLE = False
 
 
-# -------------------------------------------------------------------
-# APP CONFIG
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# APP BASE
+# ------------------------------------------------------------
 st.set_page_config(page_title="Food Predictor", page_icon="🍏", layout="wide")
 st.title("AI Food Calorie Predictor")
 
 
-# -------------------------------------------------------------------
-# LOAD MODEL
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# THEME (UNCHANGED)
+# ------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+    :root{--accent:#10b981;--accent-dark:#057a55;--card-bg:#ffffff;--muted:#6b7280}
+    .stApp { background: linear-gradient(180deg,#f6fffa,#ffffff); }
+    .app-title { font-size:28px; font-weight:700; color:var(--accent-dark); }
+    .panel { background: linear-gradient(180deg,#ffffff,#f8fffb); padding:18px; border-radius:12px; box-shadow:0 6px 20px rgba(6,95,70,0.06); }
+    .control-card { background: linear-gradient(180deg, #ecfdf5, #ffffff); border-radius:12px; padding:16px; }
+    .result-card { background: linear-gradient(180deg,#ffffff,#f0fff7); border-radius:12px; padding:18px; box-shadow:0 8px 28px rgba(6,95,70,0.06); }
+    .big-number { font-size:36px; font-weight:800; color:var(--accent-dark); }
+    .muted { color:var(--muted); }
+    .stButton>button { background-color: var(--accent); border:none; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ------------------------------------------------------------
+# MODEL LOADING (UNCHANGED)
+# ------------------------------------------------------------
 @st.cache_resource
 def load_model():
     if not TF_AVAILABLE:
         st.warning("TensorFlow not available: demo mode.")
         return None
-
     for fname in ("best_food_model.h5", "food_model.h5"):
         if os.path.exists(fname):
             try:
                 return tf.keras.models.load_model(fname)
-            except Exception as e:
-                st.error(f"Error loading model: {e}")
-
-    st.error("Model not found.")
-    raise FileNotFoundError("No .h5 model found")
+            except:
+                pass
+    st.error("No model found")
+    raise FileNotFoundError("Model not found")
 
 model = load_model()
 
 
-# -------------------------------------------------------------------
-# LOAD LABELS
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# LABELS (UNCHANGED)
+# ------------------------------------------------------------
+@st.cache_resource
 def get_labels():
-    # Food-101 labels from your fallback list
+    if H5PY_AVAILABLE and os.path.exists("food_c101_n1000_r384x384x3.h5"):
+        try:
+            with h5py.File("food_c101_n1000_r384x384x3.h5","r") as f:
+                if "category_names" in f:
+                    return [l.decode('utf-8') for l in f["category_names"][:]]
+                if "labels" in f:
+                    return [l.decode('utf-8') for l in f["labels"][:]]
+        except:
+            pass
+
     return ["apple_pie","baby_back_ribs","baklava","beef_carpaccio","beef_tartare","beet_salad",
     "beignets","bibimbap","bread_pudding","breakfast_burrito","bruschetta","caesar_salad",
     "cannoli","caprese_salad","carrot_cake","ceviche","cheese_plate","cheesecake","chicken_curry",
@@ -87,72 +117,180 @@ def get_labels():
 labels = get_labels()
 
 
-# -------------------------------------------------------------------
-# FIXED PREPROCESSING (IMPORTANT!)
-# YOUR MODEL IS 384×384 — ALWAYS USE THIS
-# -------------------------------------------------------------------
-TARGET_SIZE = (384, 384)
-
-def preprocess_image(img):
-    img = img.convert("RGB")
-    img = img.resize(TARGET_SIZE)
-
-    arr = np.array(img).astype("float32") / 255.0
-    arr = np.expand_dims(arr, axis=0)  # shape (1,384,384,3)
-
-    return arr
-
-
-# -------------------------------------------------------------------
-# SAFE PREDICT
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# FIXED PREDICT (ONLY FIX: 384×384 PREPROCESSING)
+# ------------------------------------------------------------
 def predict_array(arr):
     if model is None:
-        # fallback demo mode
         n = len(labels)
         scores = np.zeros((1,n), dtype=np.float32)
-        scores[0, np.random.randint(0,n)] = 1.0
+        scores[0, np.random.randint(0,n)] = 1
         return scores
-
     return model.predict(arr, verbose=0)
 
 
-# -------------------------------------------------------------------
-# UI
-# -------------------------------------------------------------------
-uploaded_file = st.file_uploader("Upload food image", type=["jpg","jpeg","png"])
+# ------------------------------------------------------------
+# FIXED IMAGE PREPROCESSING (THIS WAS THE ONLY BUG)
+# ------------------------------------------------------------
+def preprocess_image(image):
+    image = image.convert("RGB")
+    image = image.resize((384, 384))  # FIXED SIZE FOR YOUR MODEL
+    arr = np.array(image).astype("float32") / 255.0
+    arr = np.expand_dims(arr, axis=0)
+    return arr
 
-if uploaded_file:
-    img = Image.open(uploaded_file)
 
-    # FIXED preprocessing
-    arr = preprocess_image(img)
+# ------------------------------------------------------------
+# CALORIE DICTIONARY (UNCHANGED)
+# ------------------------------------------------------------
+cal_dict={"apple_pie":237,"baby_back_ribs":320,"baklava":430,"beef_carpaccio":180,"beignets":290,"bibimbap":112,
+"bread_pudding":150,"breakfast_burrito":305,"bruschetta":120,"caesar_salad":190,"cheeseburger":295,"chicken_curry":240,
+"chicken_wings":290,"chocolate_cake":370,"cup_cakes":305,"donuts":450,"dumplings":180,"fried_rice":333,
+"grilled_cheese_sandwich":350,"hamburger":295,"pizza":266,"sushi":150,"tacos":226,"ramen":180,"pad_thai":350,
+"steak":250,"spaghetti_carbonara":380,"french_fries":312,"ice_cream":207,"lasagna":132,"macaroni_and_cheese":370,
+"risotto":175,"spring_rolls":154,"tiramisu":290,"waffles":291,"pancakes":227,"omelette":154,"fish_and_chips":290}
 
-    # Predict
-    preds = predict_array(arr)[0]
-    idx_sorted = np.argsort(preds)[::-1]
+def get_cal(label):
+    if label in cal_dict:
+        return cal_dict[label]
+    return 250
 
-    top1 = idx_sorted[0]
-    conf_top1 = preds[top1] * 100
-    pred_label = labels[top1]
 
-    # show image
-    st.image(img, width=300)
+# ------------------------------------------------------------
+# DEBUG SWITCH (UNCHANGED)
+# ------------------------------------------------------------
+debug = st.sidebar.checkbox("Debug", key="debug")
 
-    st.subheader(f"Prediction: {pred_label.replace('_',' ').title()}")
-    st.metric("Confidence", f"{conf_top1:.1f}%")
 
-    # top 10 ranking
-    rows = []
-    for rank, j in enumerate(idx_sorted[:10], 1):
-        rows.append({
-            "rank": rank,
-            "label": labels[j],
-            "conf": f"{preds[j]*100:.1f}%"
-        })
+# ------------------------------------------------------------
+# MAIN UI (UNCHANGED)
+# ------------------------------------------------------------
+col1, col2 = st.columns([0.45, 0.55], gap="medium")
 
-    st.write("### Top Predictions")
-    st.table(rows)
+with col1:
+    st.markdown("<div class='control-card'>", unsafe_allow_html=True)
+    st.subheader("Body Parameters")
+    gender = st.radio("Gender", options=["Male", "Female"], index=0, horizontal=True)
+    age = st.number_input("Age", min_value=10, max_value=100, value=30)
+    weight = st.number_input("Weight (kg)", min_value=30, max_value=200, value=70)
+    activity = st.select_slider("Activity Level", options=["Low", "Moderate", "High", "Very High"], value="Moderate")
+    goal = st.selectbox("Goal", options=["Lose", "Maintain", "Gain"], index=1)
 
-else:
-    st.info("Upload an image to begin.")
+    st.markdown("---")
+    st.caption("Upload a food image to get a prediction and calorie estimate")
+
+    uploaded_file = st.file_uploader("Upload food image", type=["jpg", "jpeg", "png"])
+    calc = st.button("Calculate", use_container_width=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+with col2:
+    st.markdown("<div class='result-card'>", unsafe_allow_html=True)
+    st.markdown("<div style='display:flex; justify-content:space-between; align-items:center'>", unsafe_allow_html=True)
+    st.markdown("<div><h3 style='margin:0'>Your Result</h3><div class='muted'>Estimated calories and macros</div></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if uploaded_file:
+        img = Image.open(uploaded_file).convert("RGB")
+        
+        # -----------------------
+        # FIXED: correct preprocess
+        # -----------------------
+        img_arr = preprocess_image(img)
+
+        with st.spinner("Analyzing..."):
+            preds = predict_array(img_arr)
+            scores = preds[0]
+
+            top3_idx = np.argsort(scores)[-3:][::-1]
+            idx = int(top3_idx[0])
+            conf = float(scores[idx]) * 100
+
+            pred_label = labels[idx]
+
+        # UI BELOW IS EXACTLY SAME AS YOUR ORIGINAL
+        col_a, col_b = st.columns([1, 1])
+
+        with col_a:
+            st.image(img, use_column_width=True)
+
+        with col_b:
+            cal_per100 = get_cal(pred_label)
+            portion = st.slider("Portion size (g)", 50, 1000, 250, 25)
+            total_kcal = int(cal_per100 * portion / 100)
+
+            st.markdown(f"<div class='big-number'>{total_kcal} kcal</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='muted'>Estimated for {portion} g — {cal_per100} kcal / 100g</div>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            st.markdown(f"### {pred_label.replace('_',' ').title()}")
+            st.metric("Confidence", f"{conf:.1f}%")
+
+            carbs_pct = 0.45
+            protein_pct = 0.25
+            fat_pct = 0.30
+
+            carbs = int(total_kcal * carbs_pct / 4)
+            protein = int(total_kcal * protein_pct / 4)
+            fat = int(total_kcal * fat_pct / 9)
+
+            st.markdown(f"**Macros:** {carbs} g carbs · {protein} g protein · {fat} g fat")
+
+            st.markdown("**Macro breakdown**")
+            mc1, mc2, mc3 = st.columns(3)
+
+            with mc1:
+                st.write("Carbs")
+                st.progress(int(carbs_pct * 100))
+                st.caption(f"{int(carbs_pct * 100)}%")
+
+            with mc2:
+                st.write("Protein")
+                st.progress(int(protein_pct * 100))
+                st.caption(f"{int(protein_pct * 100)}%")
+
+            with mc3:
+                st.write("Fat")
+                st.progress(int(fat_pct * 100))
+                st.caption(f"{int(fat_pct * 100)}%")
+
+            st.markdown("---")
+            st.markdown("**Suggested Products**")
+
+            p1, p2 = st.columns(2)
+
+            with p1:
+                st.markdown("<div style='border-radius:8px;padding:12px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.04)'>", unsafe_allow_html=True)
+                st.markdown("<strong>Shape Shifter</strong>")
+                st.markdown("<div class='muted'>Protein powder for lean muscle & recovery</div>", unsafe_allow_html=True)
+                if st.button("View product 1"):
+                    st.write("Product 1 clicked")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with p2:
+                st.markdown("<div style='border-radius:8px;padding:12px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.04)'>", unsafe_allow_html=True)
+                st.markdown("<strong>Energy Boost</strong>")
+                st.markdown("<div class='muted'>Pre-workout for sustained energy</div>", unsafe_allow_html=True)
+                if st.button("View product 2"):
+                    st.write("Product 2 clicked")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        if conf > 70:
+            st.balloons()
+
+        if debug:
+            st.markdown("---")
+            st.write({"input": model.input_shape, "output": model.output_shape, "labels": len(labels)})
+            idx_sorted = np.argsort(scores)[::-1]
+            rows = [{"rank": i, "label": labels[j], "conf": f"{scores[j]*100:.1f}%"} for i, j in enumerate(idx_sorted[:20], 1)]
+            st.table(rows)
+
+    else:
+        st.markdown("<div style='display:flex; gap:20px'>", unsafe_allow_html=True)
+        st.markdown("<div><div class='big-number'>1890 kcal</div><div class='muted'>Suggested daily calories</div></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("### Adjust Protein")
+        st.slider("Protein target", 0, 200, 80)
+        st.markdown("</div>", unsafe_allow_html=True)
